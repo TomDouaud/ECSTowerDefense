@@ -14,6 +14,7 @@ pub mod menu;
 pub mod game;
 pub mod settings;
 pub mod constants;
+pub mod level;
 
 use menu::MenuPlugin;
 use game::GamePlugin;
