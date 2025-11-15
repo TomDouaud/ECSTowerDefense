@@ -33,7 +33,7 @@ fn main() {
             primary_window: Some(Window {
                 title: "Tower Defense (Bevy)".into(),
                 // Taille récupérée sur GameScreen.java
-                resolution: (640, 740).into(), 
+                resolution: (640.0, 740.0).into(), 
                 resizable: false,
                 ..default()
             }),
@@ -60,7 +60,7 @@ fn main() {
 
 /// Lancement de la caméra 2D dans le monde
 fn setup_camera(mut commands: Commands) {
-    commands.spawn(Camera2d::default());
+    commands.spawn(Camera2dBundle::default());
 }
 
 // Système de chargement des assets et création de la ressource GameAssets au démarrage
@@ -76,7 +76,7 @@ fn setup_assets(
     // définition du layout qui est le découpage de l'atlas
     // l'atlas fait 10 sprites de large par 3 de haut
     let atlas_layout = TextureAtlasLayout::from_grid(
-        UVec2::new(32, 32),    // Taille de chaque sprite (entière)
+        Vec2::new(32.0, 32.0), // Taille de chaque sprite
         10,                    // Nombre de colonnes
         3,                     // Nombre de lignes
         None,                  // Pas de padding
