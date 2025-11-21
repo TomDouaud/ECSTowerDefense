@@ -15,10 +15,12 @@ pub mod game;
 pub mod settings;
 pub mod constants;
 pub mod level;
+pub mod enemy;
 
 use menu::MenuPlugin;
 use game::GamePlugin;
 use settings::SettingsPlugin;
+use enemy::EnemyPlugin;
 
 // définition des ressources de jeu (images, atlas, etc)
 #[derive(Resource)]
@@ -49,6 +51,7 @@ fn main() {
             MenuPlugin,
             GamePlugin,
             SettingsPlugin,
+            EnemyPlugin,
         ))
 
         // systeme de démarrage pour créer la caméra
