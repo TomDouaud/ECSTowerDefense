@@ -17,11 +17,14 @@ pub mod constants;
 pub mod level;
 pub mod enemy;
 pub mod tower;
+pub mod projectile;
 
 use menu::MenuPlugin;
 use game::GamePlugin;
 use settings::SettingsPlugin;
 use enemy::EnemyPlugin;
+
+use crate::projectile::ProjectilePlugin;
 
 // définition des ressources de jeu (images, atlas, etc)
 #[derive(Resource)]
@@ -53,6 +56,7 @@ fn main() {
             GamePlugin,
             SettingsPlugin,
             EnemyPlugin,
+            ProjectilePlugin,
         ))
 
         // systeme de démarrage pour créer la caméra

@@ -5,6 +5,8 @@ use crate::{
     level,
     constants::tiles as TileTypes,
     tower::{Tower, TowerType},
+    enemy::Enemy,
+    projectile::Projectile,
 };
 
 
@@ -54,7 +56,7 @@ impl Plugin for GamePlugin {
         app
             .init_resource::<SelectedTower>() // Initialise à None
             .add_systems(OnEnter(AppState::Playing), (setup_game, setup_game_ui)) // Ajout de l'UI
-            .add_systems(Update, (tower_button_interaction, grid_click_interaction).run_if(in_state(AppState::Playing)))
+            .add_systems(Update, (tower_button_interaction, grid_click_interaction, tower_shooting).run_if(in_state(AppState::Playing)))
             .add_systems(OnExit(AppState::Playing), cleanup_game);
             
             
@@ -490,4 +492,65 @@ fn cleanup_game(mut commands: Commands, query: Query<Entity, With<GameComponent>
     // On retire aussi la ressource Path et SelectedTower
     commands.remove_resource::<Path>();
     commands.remove_resource::<SelectedTower>();
+}
+
+fn tower_shooting(
+    mut commands: Commands,
+    assets: Res<GameAssets>,
+    time: Res<Time>,
+    mut tower_query: Query<(&Transform, &mut Tower)>, // Les tours
+    enemy_query: Query<(Entity, &Transform), With<Enemy>>, // Les ennemis
+) {
+    for (tower_transform, mut tower) in tower_query.iter_mut() {
+        // Avancer le cooldown de la tour
+        tower.cooldown.tick(time.delta());
+
+        // Si la tour est prête à tirer
+        if tower.cooldown.just_finished() {
+
+            // Trouver l'ennemi le plus proche à portée
+            let mut closest_enemy: Option<Entity> = None;
+            let mut min_dist_sq = tower.range * tower.range; // Comparaison au carré pour perf
+
+            let tower_pos = tower_transform.translation.truncate();
+
+            for (enemy_entity, enemy_transform) in enemy_query.iter() {
+                let enemy_pos = enemy_transform.translation.truncate();
+                let dist_sq = tower_pos.distance_squared(enemy_pos);
+
+                if dist_sq <= min_dist_sq {
+                    min_dist_sq = dist_sq;
+                    closest_enemy = Some(enemy_entity);
+                }
+            }
+
+            // Si on a trouvé une cible, FEU !
+            if let Some(target) = closest_enemy {
+                // CORRECTION : 17 est la flèche (Ligne 2, colonne 8)
+                // 27 était le "S" du départ.
+                let projectile_sprite_index = 17;
+
+                commands.spawn((
+                    SpriteSheetBundle {
+                        texture: assets.sprite_atlas.clone(),
+                        atlas: TextureAtlas {
+                            layout: assets.sprite_atlas_layout.clone(),
+                            index: projectile_sprite_index,
+                        },
+                        transform: Transform::from_xyz(tower_pos.x, tower_pos.y, 2.0), // Même hauteur que la tour
+                        ..default()
+                    },
+                    Projectile {
+                        target,
+                        damage: tower.damage,
+                        speed: 300.0, // Rapide !
+                    },
+                    GameComponent, // Pour le nettoyage
+                ));
+
+                // Réinitialiser le cooldown
+                tower.cooldown.reset();
+            }
+        }
+    }
 }
