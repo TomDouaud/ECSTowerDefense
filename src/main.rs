@@ -16,6 +16,7 @@ pub mod settings;
 pub mod constants;
 pub mod level;
 pub mod enemy;
+pub mod tower;
 
 use menu::MenuPlugin;
 use game::GamePlugin;
