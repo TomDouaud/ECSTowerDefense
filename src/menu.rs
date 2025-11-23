@@ -13,7 +13,6 @@ struct MenuUI;
 enum MenuButtonAction {
     Play,
     Simulation,
-    Settings,
     Quit,
 }
 
@@ -120,19 +119,6 @@ fn setup_menu(mut commands: Commands, assets: Res<GameAssets>) {
         .with_children(|parent| {
             parent.spawn(TextBundle::from_section("SIMULATION", text_style.clone()));
         });
-        // --- Bouton "SETTINGS" ---
-        parent.spawn((
-            ButtonBundle {
-                style: button_style.clone(),
-                background_color: NORMAL_BUTTON.into(),
-                ..default()
-            },
-            MenuButtonAction::Settings,
-        ))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section("SETTINGS", text_style.clone()));
-        });
-
         // --- Bouton "QUIT" ---
         parent.spawn((
             ButtonBundle {
@@ -183,10 +169,6 @@ fn button_interaction_system(
                     MenuButtonAction::Simulation => {
                         println!("Bouton Simulation cliqué !");
                         next_state.set(AppState::Simulation); // Change l'état
-                    }
-                    MenuButtonAction::Settings => {
-                        println!("Bouton Settings cliqué !");
-                        next_state.set(AppState::Settings); // Change l'état
                     }
                     MenuButtonAction::Quit => {
                         println!("Bouton Quit cliqué !");

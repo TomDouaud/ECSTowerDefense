@@ -1,4 +1,4 @@
-use bevy::{prelude::*, asset::AssetServer, diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},};
+use bevy::{prelude::*, app::AppExit, asset::AssetServer, diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},};
 
 // enum de tous les états possibles de l'application (basé sur GameState.java)
 #[derive(States, Debug, Clone, Eq, PartialEq, Hash, Default)]
@@ -6,14 +6,12 @@ pub enum AppState {
     #[default] // L'état par défaut au lancement
     Menu,
     Playing,
-    Settings,
     Simulation,
 }
 
 
 pub mod menu;
 pub mod game;
-pub mod settings;
 pub mod constants;
 pub mod level;
 pub mod enemy;
@@ -23,11 +21,9 @@ pub mod simulation;
 
 use menu::MenuPlugin;
 use game::GamePlugin;
-use settings::SettingsPlugin;
 use enemy::EnemyPlugin;
 use simulation::SimulationPlugin;
-
-use crate::projectile::ProjectilePlugin;
+use projectile::ProjectilePlugin;
 
 // définition des ressources de jeu (images, atlas, etc)
 #[derive(Resource)]
@@ -37,41 +33,34 @@ pub struct GameAssets {
     pub sprite_atlas_layout: Handle<TextureAtlasLayout>,
 }
 
+#[derive(Resource, Default)]
+pub struct GlobalPause(pub bool);
+
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Tower Defense (Bevy)".into(),
-                // Taille récupérée sur GameScreen.java
-                resolution: (640.0, 740.0).into(), 
-                resizable: false,
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Tower Defense (Bevy)".into(),
+                    resolution: (640.0, 740.0).into(), 
+                    resizable: false,
+                    ..default()
+                }),
                 ..default()
-                
             }),
-            
-            ..default()
-        }))
-
-        // Utilise notre systeme d'état AppState
+            FrameTimeDiagnosticsPlugin::default(),
+        ))
         .init_state::<AppState>()
-
-        // Ajout des scenes (vu comme des "plugins" Bevy)
+        .init_resource::<GlobalPause>() // <-- On initialise la pause ici
         .add_plugins((
             MenuPlugin,
             GamePlugin,
-            SettingsPlugin,
+            // SettingsPlugin supprimé
             EnemyPlugin,
             ProjectilePlugin,
             SimulationPlugin,
-            FrameTimeDiagnosticsPlugin::default(),
-            // LogDiagnosticsPlugin::default(),
         ))
-
-        // systeme de démarrage pour créer la caméra
-        .add_systems(Startup, (
-            setup_camera, 
-            setup_assets,
-        ))
+        .add_systems(Startup, (setup_camera, setup_assets))
         .run();
 }
 
