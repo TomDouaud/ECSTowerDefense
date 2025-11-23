@@ -42,28 +42,44 @@ struct SelectedTower {
     tower_type: Option<TowerType>,
 }
 
+#[derive(Resource)]
+pub struct PlayerStats {
+    pub money: i32,
+    pub lives: i32,
+}
+
 // Pour les boutons de sélection de tours
 #[derive(Component)]
 struct TowerButton {
     tower_type: TowerType,
 }
 
+#[derive(Component)]
+struct MoneyText;
+
+#[derive(Component)]
+struct LivesText;
 // Équivalent de "Playing.java"
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app
-            .init_resource::<SelectedTower>() // Initialise à None
-            .add_systems(OnEnter(AppState::Playing), (setup_game, setup_game_ui)) // Ajout de l'UI
-            .add_systems(Update, (tower_button_interaction, grid_click_interaction, tower_shooting).run_if(in_state(AppState::Playing)))
+            .init_resource::<SelectedTower>()
+            // On initialise le joueur avec 100 Gold et 3 Vies
+            .insert_resource(PlayerStats { money: 100, lives: 3 })
+            .add_systems(OnEnter(AppState::Playing), (setup_game, setup_game_ui))
+            .add_systems(Update, (
+                tower_button_interaction, 
+                grid_click_interaction, 
+                tower_shooting,
+                update_ui_stats // <-- Système de mise à jour de l'UI
+            ).run_if(in_state(AppState::Playing).or_else(in_state(AppState::Simulation))))
             .add_systems(OnExit(AppState::Playing), cleanup_game);
-            
-            
     }
 }
 
-fn get_atlas_index(x: usize, y: usize) -> usize {
+pub fn get_atlas_index(x: usize, y: usize) -> usize {
     y * 10 + x
 }
 
@@ -273,6 +289,47 @@ fn setup_game_ui(mut commands: Commands, assets: Res<GameAssets>) {
         spawn_tower_button(parent, &assets, TowerType::Archer);
         spawn_tower_button(parent, &assets, TowerType::Wizard);
     });
+
+    commands.spawn((
+        NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(10.0),
+                left: Val::Px(10.0),
+                flex_direction: FlexDirection::Column, // L'un sous l'autre
+                ..default()
+            },
+            ..default()
+        },
+        GameComponent,
+    )).with_children(|parent| {
+        
+        // Texte Argent
+        parent.spawn((
+            TextBundle::from_section(
+                "Gold: 100", // Valeur initiale
+                TextStyle {
+                    font_size: 30.0,
+                    color: Color::GOLD,
+                    ..default()
+                },
+            ),
+            MoneyText, // Marqueur
+        ));
+
+        // Texte Vies
+        parent.spawn((
+            TextBundle::from_section(
+                "Lives: 20",
+                TextStyle {
+                    font_size: 30.0,
+                    color: Color::RED,
+                    ..default()
+                },
+            ),
+            LivesText, // Marqueur
+        ));
+    });
 }
 
 fn spawn_tower_button(parent: &mut ChildBuilder, assets: &Res<GameAssets>, tower_type: TowerType) {
@@ -315,49 +372,19 @@ fn spawn_tower_button(parent: &mut ChildBuilder, assets: &Res<GameAssets>, tower
     });
 }
 
-fn spawn_composite_tile(
-    commands: &mut Commands,
-    assets: &Res<GameAssets>,
-    pos: Vec2,
-    base_index: usize,
-    overlay_index: usize,
-    overlay_rotation: Quat, // La rotation est maintenant corrigée
-) {
-    // Couche de base (Eau), z=0.0
+pub fn spawn_composite_tile(commands: &mut Commands, assets: &Res<GameAssets>, pos: Vec2, base_i: usize, over_i: usize, rot: Quat) {
+     commands.spawn((
+        SpriteSheetBundle {
+            texture: assets.sprite_atlas.clone(),
+            atlas: TextureAtlas { layout: assets.sprite_atlas_layout.clone(), index: base_i },
+            transform: Transform::from_xyz(pos.x, pos.y, 0.0), ..default()
+        }, GameTile { tile_type: TileType::Water }, GameComponent));
     commands.spawn((
         SpriteSheetBundle {
             texture: assets.sprite_atlas.clone(),
-            atlas: TextureAtlas {
-                layout: assets.sprite_atlas_layout.clone(),
-                index: base_index,
-            },
-            transform: Transform::from_xyz(pos.x, pos.y, 0.0),
-            ..default()
-        },
-        GameTile { tile_type: TileType::Water }, 
-        GameComponent,
-        Name::new(format!("Tile ({},{}) - Base", pos.x, pos.y)),
-    ));
-
-    // Couche superposée (Sable), z=0.1
-    commands.spawn((
-        SpriteSheetBundle {
-            texture: assets.sprite_atlas.clone(),
-            atlas: TextureAtlas {
-                layout: assets.sprite_atlas_layout.clone(),
-                index: overlay_index,
-            },
-            transform: Transform {
-                translation: pos.extend(0.1), // z=0.1
-                rotation: overlay_rotation, // Applique la rotation (corrigée)
-                ..default()
-            },
-            ..default()
-        },
-        GameTile { tile_type: TileType::Water }, 
-        GameComponent,
-        Name::new(format!("Tile ({},{}) - Overlay", pos.x, pos.y)),
-    ));
+            atlas: TextureAtlas { layout: assets.sprite_atlas_layout.clone(), index: over_i },
+            transform: Transform { translation: pos.extend(0.1), rotation: rot, ..default() }, ..default()
+        }, GameTile { tile_type: TileType::Water }, GameComponent));
 }
 
 // Gère le clic sur les boutons du bas
@@ -403,6 +430,21 @@ fn tower_button_interaction(
     }
 }
 
+fn update_ui_stats(
+    stats: Res<PlayerStats>,
+    mut money_query: Query<&mut Text, (With<MoneyText>, Without<LivesText>)>,
+    mut lives_query: Query<&mut Text, (With<LivesText>, Without<MoneyText>)>,
+) {
+    // On met à jour le texte seulement si la ressource a changé
+    // (Bevy le gère, mais ici on réécrit à chaque frame par simplicité)
+    for mut text in money_query.iter_mut() {
+        text.sections[0].value = format!("Gold: {}", stats.money);
+    }
+    for mut text in lives_query.iter_mut() {
+        text.sections[0].value = format!("Lives: {}", stats.lives);
+    }
+}
+
 // Gère le clic sur la grille pour poser une tour
 fn grid_click_interaction(
     mut commands: Commands,
@@ -411,9 +453,18 @@ fn grid_click_interaction(
     camera_q: Query<(&Camera, &GlobalTransform)>,
     selected_tower: Res<SelectedTower>,
     assets: Res<GameAssets>,
+    mut stats: ResMut<PlayerStats>, // NOUVEAU : On a besoin de l'argent
 ) {
     if mouse_input.just_pressed(MouseButton::Left) {
         let Some(tower_type) = selected_tower.tower_type else { return; };
+        
+        // 1. Vérifier si on a assez d'argent AVANT tout calcul
+        let cost = tower_type.get_cost();
+        if stats.money < cost {
+            println!("Pas assez d'argent ! Coût: {}, Actuel: {}", cost, stats.money);
+            return; 
+        }
+
         let (camera, camera_transform) = camera_q.single();
         let Some(window) = windows.get_single().ok() else { return };
 
@@ -421,11 +472,11 @@ fn grid_click_interaction(
             .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
             .map(|ray| ray.origin.truncate())
         {
-            // Constantes (doivent être identiques à setup_game)
+            // Constantes identiques à setup_game
             const TILE_SIZE: f32 = 32.0;
             const MAP_WIDTH: f32 = 20.0 * TILE_SIZE;
             const MAP_HEIGHT: f32 = 20.0 * TILE_SIZE;
-            let vertical_shift = 50.0; // Même décalage !
+            let vertical_shift = 50.0; 
             let x_offset = -MAP_WIDTH / 2.0 + TILE_SIZE / 2.0;
             let y_offset = (MAP_HEIGHT / 2.0 - TILE_SIZE / 2.0) + vertical_shift;
 
@@ -433,18 +484,15 @@ fn grid_click_interaction(
             let grid_y = ((y_offset - world_position.y) / TILE_SIZE).round();
 
             if grid_x >= 0.0 && grid_x < 20.0 && grid_y >= 0.0 && grid_y < 20.0 {
-                // Vérifier l'UI : si la souris est trop basse, on ne clique pas
-                // (L'UI prend les 100px du bas)
-                if world_position.y < (-370.0 + 100.0) { return; } // -370 = bas de l'écran
+                if world_position.y < (-370.0 + 100.0) { return; }
 
                 let ix = grid_x as usize;
                 let iy = grid_y as usize;
                 let level_data = level::get_level_data();
-                let tile_id = level_data[iy][ix];
-
-                if tile_id == 0 { // Herbe uniquement
+                
+                if level_data[iy][ix] == 0 { 
                     let snap_pos = Vec2::new(x_offset + grid_x * TILE_SIZE, y_offset - grid_y * TILE_SIZE);
-                    let (range, damage, cooldown) = tower_type.get_stats();
+                    let (range, damage, cooldown) = tower_type.get_base_stats();
 
                     commands.spawn((
                         SpriteSheetBundle {
@@ -455,8 +503,11 @@ fn grid_click_interaction(
                         },
                         Tower { range, damage, cooldown: Timer::from_seconds(cooldown, TimerMode::Repeating) },
                         GameComponent,
-                        Name::new(format!("Tower")),
                     ));
+
+                    // 2. Payer la tour
+                    stats.money -= cost;
+                    println!("Tour achetée ! Reste : {}", stats.money);
                 }
             }
         }
@@ -465,7 +516,7 @@ fn grid_click_interaction(
 
 // Traduit la logique de TileManager.java
 // et Constants.java
-fn get_tile_type(tile_id: u32) -> TileType {
+pub fn get_tile_type(tile_id: u32) -> TileType {
     match tile_id {
         // ID 0 = GRASS_TILE (type 1)
         0 => TileType::Grass,
@@ -492,6 +543,7 @@ fn cleanup_game(mut commands: Commands, query: Query<Entity, With<GameComponent>
     // On retire aussi la ressource Path et SelectedTower
     commands.remove_resource::<Path>();
     commands.remove_resource::<SelectedTower>();
+    commands.remove_resource::<PlayerStats>();
 }
 
 fn tower_shooting(

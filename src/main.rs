@@ -1,4 +1,4 @@
-use bevy::{prelude::*, asset::AssetServer};
+use bevy::{prelude::*, asset::AssetServer, diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},};
 
 // enum de tous les états possibles de l'application (basé sur GameState.java)
 #[derive(States, Debug, Clone, Eq, PartialEq, Hash, Default)]
@@ -7,6 +7,7 @@ pub enum AppState {
     Menu,
     Playing,
     Settings,
+    Simulation,
 }
 
 
@@ -18,11 +19,13 @@ pub mod level;
 pub mod enemy;
 pub mod tower;
 pub mod projectile;
+pub mod simulation;
 
 use menu::MenuPlugin;
 use game::GamePlugin;
 use settings::SettingsPlugin;
 use enemy::EnemyPlugin;
+use simulation::SimulationPlugin;
 
 use crate::projectile::ProjectilePlugin;
 
@@ -43,7 +46,9 @@ fn main() {
                 resolution: (640.0, 740.0).into(), 
                 resizable: false,
                 ..default()
+                
             }),
+            
             ..default()
         }))
 
@@ -57,6 +62,9 @@ fn main() {
             SettingsPlugin,
             EnemyPlugin,
             ProjectilePlugin,
+            SimulationPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
+            // LogDiagnosticsPlugin::default(),
         ))
 
         // systeme de démarrage pour créer la caméra

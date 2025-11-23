@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::{AppState, GameAssets, game::Path, constants::enemies as EnemyConstants}; 
+use crate::{AppState, GameAssets, game::Path, constants::enemies as EnemyConstants, game::PlayerStats}; 
 
 // Le component Ennemi (juste avec une vitesse)
 #[derive(Component)]
@@ -41,7 +41,7 @@ impl Plugin for EnemyPlugin {
             })
             .add_systems(Update, 
                 (spawn_enemies, move_enemies, animate_enemy_rotation, enemy_death_system, update_health_bars)
-                .run_if(in_state(AppState::Playing))
+                .run_if(in_state(AppState::Playing).or_else(in_state(AppState::Simulation)))
             );
     }
 }
@@ -114,11 +114,12 @@ fn move_enemies(
     mut query: Query<(Entity, &mut Transform, &Enemy, &mut PathFollower)>,
     path: Res<Path>,
     time: Res<Time>,
+    mut stats: ResMut<PlayerStats>, // <--- Ajoutez ceci
 ) {
     if path.points.is_empty() { return; }
-
     for (entity, mut transform, enemy, mut follower) in query.iter_mut() {
         if follower.path_index >= path.points.len() {
+            stats.lives -= 1; // Perte de vie
             commands.entity(entity).despawn_recursive();
             continue;
         }
@@ -181,10 +182,16 @@ fn update_health_bars(
     }
 }
 
-fn enemy_death_system(mut commands: Commands, query: Query<(Entity, &Health)>) {
+fn enemy_death_system(
+    mut commands: Commands, 
+    query: Query<(Entity, &Health)>,
+    mut stats: ResMut<PlayerStats>, // <--- Ajoutez ceci
+) {
     for (entity, health) in query.iter() {
         if health.current <= 0 {
-            println!("Ennemi mort !");
+            // Gain d'argent (ex: 5 gold par orc)
+            // Idéalement, la récompense serait dans le composant Enemy
+            stats.money += 5; 
             commands.entity(entity).despawn_recursive();
         }
     }

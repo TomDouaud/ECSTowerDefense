@@ -13,7 +13,7 @@ pub struct ProjectilePlugin;
 
 impl Plugin for ProjectilePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, move_projectiles.run_if(in_state(AppState::Playing)));
+        app.add_systems(Update, move_projectiles.run_if(in_state(AppState::Playing).or_else(in_state(AppState::Simulation))));
     }
 }
 
